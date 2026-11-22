@@ -1,0 +1,17 @@
+[package]
+name = "flint-rs"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+# default = ["pyo3"]
+
+[lib]
+name = "flint_rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+float_next_after = "1.0.0"
+pyo3 = { version="0.21.1", features = ["extension-module", "abi3-py38", "multiple-pymethods"], optional = true}
