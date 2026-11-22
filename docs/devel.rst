@@ -23,8 +23,8 @@ directorys into the newly created folder.
 
 .. prompt:: bash $
 
-    git clone https://github.com/jefwanger/numpy-flint.git
-    cd numpy-flint
+    git clone https://github.com/jefwagner/flint.git
+    cd flint
 
 It is strongly recommended that for all development work in python that you work in a
 separate development virtual environment. Using the built-in python venv package you
@@ -106,7 +106,7 @@ Numpy-flint is an open source project that was created and is maintained by a si
 person. If you would like to contribute, I encourage you to follow standard open source
 procedure:
 
-1. Open up an issue on the `Bug Tracker <https://github.com/jefwagner/numpy-flint/issues>`_ with your proposal.
+1. Open up an issue on the `Bug Tracker <https://github.com/jefwagner/flint/issues>`_ with your proposal.
 2. Fork the project and create a new branch for your contribution.
 3. After testing, add create a pull request to merge your changes back into the project.
 

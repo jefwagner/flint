@@ -29,7 +29,7 @@ dynamic = ["version"]
 
 [project.urls]
 "Homepage" = "https://jefwagner.github.io/flint"
-"Bug Tracker" = "https://github.com/jefwagner/numpy-flint/issues"
+"Bug Tracker" = "https://github.com/jefwagner/flint/issues"
 
 [tool.setuptools]
 license-files = ["copying*"]

@@ -1,0 +1,65 @@
+name: Docs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow one deployment at a time; don't cancel one that is in progress.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build and docs dependencies
+        # numpy<2: numpy_flint.c uses the numpy 1.x C API and does not compile
+        # against numpy 2. libclang provides the `clang` bindings hawkmoth needs.
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "numpy<2" setuptools sphinx furo sphinx-prompt hawkmoth libclang
+
+      - name: Build the C extension in place
+        # docs/conf.py imports flint from ../src, so the compiled module has to
+        # live in the source tree rather than site-packages.
+        run: python setup.py build_ext --inplace
+
+      - name: Build docs
+        run: sphinx-build -b html docs _build/html
+
+      - name: Check API pages are populated
+        run: |
+          for page in c_api python_api; do
+            n=$(grep -c 'class="sig' "_build/html/$page.html" || true)
+            echo "$page.html: $n signatures"
+            test "$n" -gt 0
+          done
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _build/html
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
