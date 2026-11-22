@@ -19,3 +19,5 @@
 
 # Editor specific stuff
 .vscode
+# Rust
+**/target
