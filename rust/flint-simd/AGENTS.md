@@ -1,109 +1,108 @@
 # AGENTS.md
 
-This file provides guidance for agentic coding agents (AI assistants, automated tools) working in
-this repository.
+This file provides guidance for agentic coding agents (AI assistants, automated tools) working on
+the `flint-simd` crate.
+
+---
+
+## Where this crate lives
+
+`flint-simd` is one part of the `flint` monorepo (`github.com/jefwagner/flint`):
+
+```
+flint/                      # repo root
+├── src/flint/, tests/,     # numpy-flint: the C extension published to PyPI
+│   docs/, pyproject.toml   #   (docs deploy to jefwagner.github.io/flint)
+├── rust/                   # Cargo workspace root
+│   ├── Cargo.toml          #   members = ["flint-simd"]
+│   ├── rust-toolchain.toml #   pins nightly
+│   └── flint-simd/         #   ← this crate
+└── legacy/flint-rs/        # superseded PyO3 prototype; not in the workspace, do not modify
+```
+
+Only touch files outside `rust/` when the task explicitly calls for it.
 
 ---
 
 ## Project Overview
 
-`jefscad` is an early-stage personal Rust project implementing a solid modeler. The repository
-currently contains one crate:
+`flint-simd` (package name `flint` in `Cargo.toml`) is a rounded floating-point interval
+arithmetic library. The basic type `Flint<T>` holds a lower and upper bound (`lb`, `ub`) for
+`f32`/`f64`, and the exact result of a computation always lies within that interval.
 
-- **`flint/`** — Rounded floating-point interval arithmetic library. Provides `Flint<T>` (a pair
-  of lower/upper `f32`/`f64` bounds) and associated types (`FlintRef`, `FlintArray`, `FlintVec`,
-  `FlintSlice`). Many types and operations are planned but not yet implemented.
-- **`kb/`** — Personal knowledge-base in Markdown; not source code, do not modify.
+To support SIMD, array types use a struct-of-arrays layout (separate `lb` and `ub` arrays)
+instead of an array of `Flint` structs. The public types are:
+
+| Type | Kind |
+|------|------|
+| `Flint<T>` | Owned scalar (`Copy`) |
+| `FlintRef<'a, T>` / `FlintMut<'a, T>` | Borrowed scalar (shared / mutable) |
+| `FlintArray<T, N>` | Owned fixed-size array; `N` encodes shape (e.g. 16 for a 4×4 matrix) |
+| `FlintVec<T>` | Owned heap-allocated array |
+| `FlintView<'a, T>` / `FlintViewMut<'a, T>` | Borrowed slice of an array or vec |
+
+`FlintSoA` / `FlintSoAMut` are the shared traits over the array-like types. No type carries
+shape or stride metadata; multi-dimensional meaning comes from `N` and the methods built on it.
+
+The design rationale and the TODO list are in `notes.md`.
 
 ---
 
-## Critical: Nightly Rust Required
+## Nightly Rust
 
-The `flint` crate uses two nightly-only features and **will not compile on stable Rust**:
+The crate uses two nightly-only features and **will not compile on stable Rust**:
 
-```toml
-#![feature(portable_simd)]      # std::simd for vectorised next_up/next_down
-#![feature(macro_metavar_expr)] # ${count(...)}, ${index()} in declarative macros
+```rust
+#![feature(portable_simd)]      // std::simd
+#![feature(macro_metavar_expr)] // ${count(...)}, ${index()} in declarative macros
 ```
 
-**Always prefix Cargo commands with `+nightly`** when there is no `rust-toolchain.toml` present.
+`rust/rust-toolchain.toml` selects nightly automatically, so run plain `cargo` commands from
+`rust/` or any directory below it. No `+nightly` is needed.
 
 ---
 
 ## Build, Check, Lint, and Test Commands
 
-All commands should be run from the `flint/` directory, or use `--manifest-path flint/Cargo.toml`
-from the repo root.
-
-### Build
+Run from `rust/` (the workspace root) or from `rust/flint-simd/`.
 
 ```bash
-cargo +nightly build
+cargo build
+cargo check            # fast, no linking
+cargo clippy           # lint
+cargo fmt              # format
+cargo test             # all tests
+cargo doc --open       # API docs
 ```
 
-### Check (fast, no linking)
+Run a subset of tests by passing a substring of the test path:
 
 ```bash
-cargo +nightly check
+cargo test f32_nu_nd               # next_up_down::test::f32_nu_nd
+cargo test test_equality_flint     # cmp::test::test_equality_flint
+cargo test cmp::                   # every test in a module
 ```
 
-### Lint
-
-```bash
-cargo +nightly clippy
-```
-
-### Run all tests
-
-```bash
-cargo +nightly test
-```
-
-### Run a single test by name
-
-Pass a substring of the test path; Cargo will run every test whose full name contains it:
-
-```bash
-cargo +nightly test <substring>
-
-# Examples:
-cargo +nightly test f32_nu_nd                  # next_up_down::test::f32_nu_nd
-cargo +nightly test test_equality_flint        # cmp::test::test_equality_flint
-cargo +nightly test test_from_float            # conv::test::test_from_float
-cargo +nightly test fmt                        # all fmt tests
-```
-
-### Run all tests in a module
-
-```bash
-cargo +nightly test cmp::
-cargo +nightly test conv::
-cargo +nightly test next_up_down::
-cargo +nightly test fmt::
-```
-
-### Build documentation
-
-```bash
-cargo +nightly doc --open
-```
+Current baseline: `cargo test` passes, but `cargo clippy` reports a few warnings and the tree is
+not yet `cargo fmt`-clean. Don't mix bulk reformatting or lint cleanups into unrelated changes.
 
 ---
 
-## Repository Layout
+## Crate Layout
 
 ```
-flint/
-├── Cargo.toml          # Edition 2024; deps: num-traits, ryu
-├── src/
-│   ├── lib.rs          # Crate root: type definitions, feature flags, top-level tests
-│   ├── next_up_down.rs # NextUpDown trait: scalar, SIMD, array, Vec impls
-│   ├── fmt.rs          # Display/Debug formatting for Flint scalars
-│   ├── conv.rs         # From/Into conversions + creation macros
-│   └── cmp.rs          # PartialEq / PartialOrd implementations
-kb/                     # Personal knowledge-base (Markdown) — do not modify
-notes.md                # Top-level project TODO — checkbox style [x]/[_]
-flint/notes.md          # Crate-level TODO
+rust/flint-simd/
+├── Cargo.toml          # edition 2024; deps: num-traits, ryu
+├── notes.md            # design notes + TODO list (checkbox style)
+└── src/
+    ├── lib.rs          # crate root: feature flags, type definitions, SoA traits
+    ├── next_up_down.rs # NextUpDown trait: scalar, SIMD, array, Vec impls
+    ├── fmt.rs          # Display/Debug (shortest number inside the interval)
+    ├── conv.rs         # From/Into conversions + creation macros
+    ├── cmp.rs          # PartialEq / PartialOrd
+    ├── arith.rs        # arithmetic operators, scalar/array broadcasting
+    ├── linalg.rs       # 4×4 linear algebra (IDENTITY_4X4, etc.)
+    └── math.rs         # elementary math functions
 ```
 
 ---
@@ -112,119 +111,82 @@ flint/notes.md          # Crate-level TODO
 
 ### Formatting
 
-- Rust edition **2024**.
-- Use `rustfmt` defaults (no `rustfmt.toml` exists); run `cargo +nightly fmt` before committing.
+- Rust edition **2024**, `rustfmt` defaults (there is no `rustfmt.toml`).
 - 4-space indentation; no tabs.
 - Trailing commas in multi-line struct literals, function arguments, and match arms.
-- `where` clauses on their own line when trait bounds are complex or numerous.
+- Put `where` clauses on their own line when the trait bounds are complex or numerous.
 
 ### Comments
 
-- Use `///` doc-comments for all public items (types, traits, methods, macros, constants).
+- Use `///` doc comments for all public items (types, traits, methods, macros, constants).
 - Use `//` line comments for inline notes; avoid `/* */` block comments.
-- Section dividers inside large `impl` blocks use `// ----` dash lines.
+- Separate sections inside large `impl` blocks with `// ----` dash lines.
 
 ### Imports
 
-- Order: `std` / core imports first, then external crates, then `crate::` intra-crate imports.
-- Use `use std::simd::prelude::*;` for SIMD imports; import additional SIMD items individually
-  (e.g., `use std::simd::Select;`).
-- Each module's test submodule brings parent items in scope with `use super::*;`.
-- External crates (`num_traits`, `ryu`) are imported directly without aliasing.
-- Use `#[allow(unused_imports)]` only when items are required solely for macro expansion.
+- Order: `std`/core first, then external crates, then `crate::` imports.
+- Use `use std::simd::prelude::*;` for SIMD and import any other SIMD items one by one
+  (e.g. `use std::simd::Select;`).
+- Test submodules bring in the parent's items with `use super::*;`.
+- Import external crates (`num_traits`, `ryu`) directly, without aliases.
+- Use `#[allow(unused_imports)]` only for items that are needed solely by a macro expansion.
 
----
-
-## Naming Conventions
+### Naming
 
 | Construct | Convention | Examples |
 |-----------|-----------|---------|
-| Types / Structs | `PascalCase` | `Flint`, `FlintRef`, `FlintArray`, `FlintVec` |
-| Traits | `PascalCase` | `NextUpDown`, `GenNumConsts`, `FloatStringParts` |
-| Methods / Functions | `snake_case` | `next_up`, `as_ref`, `to_owned`, `from_str_parts` |
-| Constants | `SCREAMING_SNAKE_CASE` | `F32_SIGN_MASK`, `MAX_F32_EXACT_INT` |
+| Types / structs / traits | `PascalCase` | `Flint`, `FlintArray`, `NextUpDown` |
+| Methods / functions | `snake_case` | `next_up`, `as_ref`, `from_str_parts` |
+| Constants | `SCREAMING_SNAKE_CASE` | `F32_SIGN_MASK`, `IDENTITY_4X4` |
 | Macros | `snake_case!` | `flint32!`, `flint64!`, `impl_small_int!` |
-| Type parameters | Single uppercase letter | `T` (float type), `N` (array lane count) |
-| Lifetimes | `'a`, `'b` | `FlintRef<'a, T>` |
-| Struct fields | `snake_case`, private | `lb` (lower bound), `ub` (upper bound) |
-| Test modules | `mod test` (preferred) or `mod tests` | — |
+| Type parameters | Single uppercase letter | `T` (float type), `N` (lane/element count) |
+| Struct fields | `snake_case`, private | `lb`, `ub` |
 
-Domain abbreviations `lb` (lower bound) and `ub` (upper bound) are canonical — use them
-consistently rather than spelling out the full words.
+The abbreviations `lb` (lower bound) and `ub` (upper bound) are canonical. Use them
+consistently instead of the full words.
 
 ---
 
 ## Error Handling
 
-- This is a **pure numeric library**; the public API is infallible or panics on programmer error.
-- Use `.expect("descriptive message")` inside formatting/internal helpers where failure indicates a
-  bug, not a runtime condition.
-- Use `unsafe { std::str::from_utf8_unchecked(...) }` only for known-ASCII buffers, and add a
-  comment explaining why the invariant holds.
-- For `PartialOrd` implementations, return `None` from `partial_cmp` whenever either operand
-  contains a `NaN` bound — never silently discard NaN information.
-- No `Result` types in the public API currently. When adding fallible operations in the future,
-  prefer returning `Option<T>` for domain-level "not representable" cases and `Result<T, E>` for
-  I/O or parsing.
+- This is a **pure numeric library**: the public API never fails, and it panics only on
+  programmer error.
+- Use `.expect("descriptive message")` in internal helpers where a failure means there is a bug.
+  Never use bare `unwrap()` in library code.
+- Use `unsafe { std::str::from_utf8_unchecked(...) }` only for buffers known to be ASCII, with a
+  comment explaining why that holds.
+- `partial_cmp` returns `None` whenever either operand has a `NaN` bound. Never silently drop
+  NaN information.
+- The public API has no `Result` types yet. For future fallible operations, use `Option<T>` when
+  a value can't be represented and `Result<T, E>` for parsing or I/O.
 
 ---
 
 ## Testing
 
-- All tests live as inline `#[cfg(test)] mod test { ... }` (or `mod tests`) blocks at the bottom
-  of each source file. There are no separate integration test files yet.
-- Test module name is `test` (singular) in most modules; `tests` (plural) appears in `lib.rs` and
-  `fmt.rs`. Prefer `mod test` for consistency in new files.
-- Tests use plain `assert_eq!` / `assert!` / `assert_ne!`; no external test framework.
-- Each test function should test one logical behaviour; name it `test_<what_is_being_tested>`.
+- Tests are inline `#[cfg(test)] mod test { ... }` blocks at the bottom of each source file.
+  There are no integration test files yet.
+- `lib.rs` and `fmt.rs` use `mod tests`. Prefer `mod test` in new files.
+- Use plain `assert_eq!` / `assert!` / `assert_ne!`, with no external test framework.
+- Each test function checks one behaviour and is named `test_<what_is_being_tested>`.
 
 ---
 
-## Patterns and Conventions
+## Patterns
 
-### Generic float types
-
-Functions and `impl` blocks that are generic over the float type `T` typically require:
-
-```rust
-where T: num_traits::Float + Copy + ...
-```
-
-Keep trait bounds minimal — only add what the body actually uses.
-
-### SIMD
-
-SIMD impls target `std::simd` (portable SIMD, nightly only). Lane counts `N` are always `const`
-generic. Prefer `SIMDf32xN = Simd<f32, N>` style local type aliases for readability within an
-`impl` block.
-
-### Macros
-
-Declarative macros (`macro_rules!`) are preferred over proc-macros for repetitive `impl` blocks
-(e.g., `impl_small_int!`, `impl_large_int!`, `impl_partial_cmp!`). Use `${count(...)}` and
-`${index()}` meta-variable expressions (nightly `macro_metavar_expr` feature) to avoid manual
-indexing.
-
-### TODO tracking
-
-Use the checkbox notation found in `notes.md` and `flint/notes.md`:
-
-```
-[x] completed task
-[_] pending task
-```
-
-Do not create separate GitHub issues or PR descriptions for in-progress work; update the relevant
-`notes.md` file instead.
+- **Generic floats:** generic `impl`s usually need `T: num_traits::Float + Copy + ...`. Add only
+  the bounds the body actually uses.
+- **SIMD:** SIMD code targets `std::simd`, with lane counts as `const` generics. Local aliases
+  such as `SIMDf32xN = Simd<f32, N>` make `impl` blocks easier to read.
+- **Macros:** prefer `macro_rules!` over proc macros for repetitive `impl`s, using
+  `${count(...)}` / `${index()}` to avoid manual indexing.
+- **TODO tracking:** keep the checkbox list in `notes.md` up to date (`[x]` done, `[_]` pending).
 
 ---
 
 ## Things to Avoid
 
-- Do not run `cargo build` or `cargo test` without `+nightly` — it will fail.
-- Do not modify files under `kb/`; it is a read-only knowledge base.
-- Do not add `unwrap()` in library code visible to users; use `expect("reason")` or return
-  `Option`/`Result`.
-- Do not introduce `std::process::exit` or panics in the public API.
-- Do not add dependencies without checking that they support `no_std` if that becomes a goal
-  (tracked in `flint/notes.md`).
+- Don't modify `legacy/flint-rs/`, and don't add it to the workspace.
+- Don't add `unwrap()`, `std::process::exit`, or panics reachable from the public API.
+- Don't add dependencies without checking whether they support `no_std`, since `no_std` may
+  become a goal (see `notes.md`).
