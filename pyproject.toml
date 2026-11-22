@@ -1,18 +1,5 @@
 # Copyright (c) 2023, Jef Wagner <jefwagner@gmail.com>
-# This file is part of numpy-flint.
-#
-# Numpy-flint is free software: you can redistribute it and/or modify it under
-# the terms of the GNU General Public License as published by the Free Software
-# Foundation, either version 3 of the License, or (at your option) any later
-# version.
-#
-# Numpy-flint is distributed in the hope that it will be useful, but WITHOUT
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
-# details.
-#
-# You should have received a copy of the GNU General Public License along with
-# numpy-flint. If not, see <https://www.gnu.org/licenses/>.
+# SPDX-License-Identifier: MIT
 
 [build-system]
 requires = ["setuptools>=59", "oldest-supported-numpy"]
@@ -25,6 +12,7 @@ readme = "readme.md"
 requires-python = ">=3.7"
 dependencies = ["numpy>=1.14.5"]
 description = "Add a rounded floating point interval (flint) dtype to NumPy"
+classifiers = ["License :: OSI Approved :: MIT License"]
 dynamic = ["version"]
 
 [project.urls]
@@ -32,7 +20,7 @@ dynamic = ["version"]
 "Bug Tracker" = "https://github.com/jefwagner/flint/issues"
 
 [tool.setuptools]
-license-files = ["copying*"]
+license-files = ["LICENSE"]
 
 [tool.setuptools.dynamic]
 version = {attr = "flint.__version__"}

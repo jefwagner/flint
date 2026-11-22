@@ -1,0 +1,4 @@
+# flint-simd uses nightly-only features (portable_simd, macro_metavar_expr).
+[toolchain]
+channel = "nightly"
+components = ["rustfmt", "clippy"]
